@@ -87,12 +87,21 @@ namespace OutlookCal
 				case OlRecurrenceType.olRecursDaily:
 					return true;
 				case OlRecurrenceType.olRecursWeekly:
-				case OlRecurrenceType.olRecursMonthly:
-					return DoesOccurInThisWeek(theAppt,theObjPattern,theToday);
-				default:
+                    return DoesOccurInThisWeek(theAppt, theObjPattern, theToday);
+                case OlRecurrenceType.olRecursMonthly:
+                    return DoesOccurInThisMonth(theAppt, theObjPattern, theToday);
+                default:
 					return false;
 			}
 		}
+
+        private bool DoesOccurInThisMonth(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
+        {
+            DateTime anOcc = new DateTime(theToday.Year, theToday.Month, theToday.Day,
+                                         theAppt.Start.Hour, theAppt.Start.Minute, theAppt.Start.Second);
+
+            return (theObjPattern.DayOfMonth == theToday.Day);
+        }
 		
 		bool DoesOccurInThisWeek(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
 		{
