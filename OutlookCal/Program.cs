@@ -16,14 +16,14 @@ namespace OutlookCal
 	{
 		public static void Main(string[] args)
 		{
-            DateTime aToday = DateTime.Now.Date.AddDays((DateTime.Now.Date.DayOfWeek==DayOfWeek.Friday)?3.0:1.0);
+			DateTime aToday = DateTime.Now.Date;
             if (args.Length == 0)
             {
                 Console.WriteLine("OutlookCal.exe <username@gmail.com>");
                 return;
             }
-
-			OutlookCalendar aCal = new OutlookCalendar();
+            Console.WriteLine($"{aToday.ToShortDateString()}\r\n==========");
+            OutlookCalendar aCal = new OutlookCalendar();
 			
 			IList<ApptItem> anItemsToArchive = aCal.QueryCalendarForTheDay(aToday);
 
@@ -32,17 +32,15 @@ namespace OutlookCal
 				Console.WriteLine("Nothing to archive!!");
 				return;
 			}
-			Console.WriteLine("{0}\r\n==========",aToday);
-			
+
 			GoogleCalendar aCloudCal = new GoogleCalendar(args[0]);
-			aCloudCal.ListTodaysAppt();
-			
-			foreach(ApptItem anAppt in anItemsToArchive)
+
+			foreach (ApptItem anAppt in anItemsToArchive)
 			{
-				Console.WriteLine("{0} {1} {2} {3} {4}",aToday.ToShortDateString(),anAppt.Start.ToShortTimeString(),anAppt.End.ToShortTimeString(),anAppt.Summary,anAppt.Location);
-				aCloudCal.AddEvent(anAppt.Start,anAppt.End,anAppt.Summary,anAppt.Location);
+				Console.WriteLine("{0} {1} {2} {3} {4}", aToday.ToShortDateString(), anAppt.Start.ToShortTimeString(), anAppt.End.ToShortTimeString(), anAppt.Summary, anAppt.Location);
+				aCloudCal.AddEvent(anAppt.Start, anAppt.End, anAppt.Summary, anAppt.Location);
 			}
-			
+
 			Console.Write("\r\nPress any key to continue . . . ");
 			Console.ReadKey(true);
 		}

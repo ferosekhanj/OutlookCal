@@ -24,7 +24,7 @@ namespace OutlookCal
 		
 		public OutlookCalendar()
 		{
-			myApp 		= new ApplicationClass();
+            myApp       = new Microsoft.Office.Interop.Outlook.Application();
 			myMapiNS 	= myApp.GetNamespace("MAPI");
 			myCalendar 	= myMapiNS.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
 		}
@@ -35,12 +35,13 @@ namespace OutlookCal
 			DateTime aTomorrow = aToday.Date.AddDays(1);
 			foreach( AppointmentItem anAppt in myCalendar.Items)
 			{
-                AppointmentItem currentApt = anAppt;
-				DateTime aStart =  anAppt.Start;
-                DateTime anEnd = anAppt.End;
-                if (!anAppt.IsRecurring)
+				AppointmentItem currentApt = anAppt;
+                DateTime aStart = anAppt.Start;
+				DateTime anEnd  = anAppt.End;
+				String ConversationTopic = anAppt.ConversationTopic??"None";
+				if( !anAppt.IsRecurring)
 				{
-					if( anEnd < aToday || anEnd > aTomorrow || aStart > aTomorrow)
+					if( anEnd <= aToday || anEnd > aTomorrow || aStart > aTomorrow)
 					{
 						continue;
 					}
@@ -52,7 +53,7 @@ namespace OutlookCal
 				
 				if( anAppt.IsRecurring)
 				{
-					if( (currentApt = GetOccurence(anAppt,aToday)) == null)
+					if( (currentApt = GetOccurence(anAppt,aToday)) == null )
 					{
 						continue;
 					}
@@ -60,14 +61,14 @@ namespace OutlookCal
 				
 				anItems.Add(
 					new ApptItem() 
-					{
-                        Start = new DateTime(currentApt.Start.Ticks),
-                        End = new DateTime(currentApt.End.Ticks),
-                        Summary = currentApt.Subject,
-                        Location = currentApt.Location						
+					{ 
+						Start = new DateTime(currentApt.Start.Ticks), 
+						End = new DateTime(currentApt.End.Ticks),
+						Summary = currentApt.Subject,
+						Location = currentApt.Location						
 					});
 			}
-			
+			anItems.Sort((x,y) => x.Start.CompareTo(y.Start));
 			return anItems;
 		}
 		
@@ -87,21 +88,13 @@ namespace OutlookCal
 				case OlRecurrenceType.olRecursDaily:
 					return true;
 				case OlRecurrenceType.olRecursWeekly:
-                    return DoesOccurInThisWeek(theAppt, theObjPattern, theToday);
-                case OlRecurrenceType.olRecursMonthly:
-                    return DoesOccurInThisMonth(theAppt, theObjPattern, theToday);
-                default:
-					return false;
+				case OlRecurrenceType.olRecursMonthly:
+                case OlRecurrenceType.olRecursMonthNth:
+					return DoesOccurInThisWeek(theAppt,theObjPattern,theToday);
+				default:
+					throw new System.Exception("Invalid value for OlRecurrenceType");
 			}
 		}
-
-        private bool DoesOccurInThisMonth(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
-        {
-            DateTime anOcc = new DateTime(theToday.Year, theToday.Month, theToday.Day,
-                                         theAppt.Start.Hour, theAppt.Start.Minute, theAppt.Start.Second);
-
-            return (theObjPattern.DayOfMonth == theToday.Day);
-        }
 		
 		bool DoesOccurInThisWeek(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
 		{
@@ -112,7 +105,7 @@ namespace OutlookCal
 			{
   			 	int offset = theAppt.Start.Day - theToday.Day;
 		        TimeSpan timeSpan = ( anOcc - theAppt.Start ); 
-		        return ( (timeSpan.TotalDays+offset / 7) % theObjPattern.Interval == 0 );
+		        return ( ((long)(timeSpan.TotalDays+offset) / 7) % theObjPattern.Interval == 0 );
 			}
 			
 			return false;
