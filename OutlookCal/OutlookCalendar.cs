@@ -39,31 +39,36 @@ namespace OutlookCal
                 DateTime aStart = anAppt.Start;
 				DateTime anEnd  = anAppt.End;
 				String ConversationTopic = anAppt.ConversationTopic??"None";
-				if( !anAppt.IsRecurring)
+                RecurrencePattern anObjPattern = (anAppt.IsRecurring)?anAppt.GetRecurrencePattern():null;
+
+                if ( !anAppt.IsRecurring)
 				{
 					if( anEnd <= aToday || anEnd > aTomorrow || aStart > aTomorrow)
 					{
 						continue;
 					}
 				}
-				else if (!DoesOccur(anAppt,aToday,aTomorrow))
+				else if (!DoesOccur(anAppt,anObjPattern,aToday))
 				{
-					continue;	
-				}
-				
-				if( anAppt.IsRecurring)
-				{
-					if( (currentApt = GetOccurence(anAppt,aToday)) == null )
+                    if (!DoesAnExceptionOccurToday(anAppt,anObjPattern,aToday))
 					{
 						continue;
 					}
 				}
-				
+		
+				if(anAppt.IsRecurring)
+                {
+                    if((currentApt = GetOccurence(anAppt,anObjPattern,aToday))==null)
+					{
+						continue;
+					}
+                }
+
 				anItems.Add(
 					new ApptItem() 
 					{ 
-						Start = new DateTime(currentApt.Start.Ticks), 
-						End = new DateTime(currentApt.End.Ticks),
+						Start = new DateTime(aToday.Year,aToday.Month,aToday.Day,currentApt.Start.Hour,currentApt.Start.Minute,currentApt.Start.Second), 
+						End = new DateTime(aToday.Year,aToday.Month,aToday.Day,currentApt.End.Hour,currentApt.End.Minute,currentApt.End.Second),
 						Summary = currentApt.Subject,
 						Location = currentApt.Location						
 					});
@@ -72,12 +77,11 @@ namespace OutlookCal
 			return anItems;
 		}
 		
-		bool DoesOccur(AppointmentItem theAppt, DateTime theToday, DateTime theTomorrow)
+		bool DoesOccur(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
 		{
-			RecurrencePattern anObjPattern = theAppt.GetRecurrencePattern();
-			if( anObjPattern.NoEndDate || anObjPattern.PatternEndDate > theToday)
+			if(theObjPattern.NoEndDate || theObjPattern.PatternEndDate > theToday)
 			{
-				return DoesOccurToday(theAppt, anObjPattern, theToday);
+				return DoesOccurToday(theAppt, theObjPattern, theToday);
 			}
 			return false;
 		}
@@ -96,6 +100,22 @@ namespace OutlookCal
 			}
 		}
 		
+		bool DoesAnExceptionOccurToday(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
+        {
+            foreach (Microsoft.Office.Interop.Outlook.Exception anExcept in theObjPattern.Exceptions)
+            {
+				if (anExcept.Deleted)
+				{
+					continue;
+				}
+                if( anExcept.AppointmentItem.Start.Date == theToday.Date)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
 		bool DoesOccurInThisWeek(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
 		{
 			DateTime anOcc = new DateTime(theToday.Year, theToday.Month, theToday.Day,
@@ -103,15 +123,16 @@ namespace OutlookCal
 			
 			if ( ( (1 << ((int)theToday.DayOfWeek)) & ((int)theObjPattern.DayOfWeekMask) ) > 0)
 			{
-  			 	int offset = theAppt.Start.Day - theToday.Day;
+				int offset = theAppt.Start.DayOfWeek - theToday.DayOfWeek;
 		        TimeSpan timeSpan = ( anOcc - theAppt.Start ); 
-		        return ( ((long)(timeSpan.TotalDays+offset) / 7) % theObjPattern.Interval == 0 );
+				timeSpan = timeSpan.Add(new TimeSpan(offset,0,0,0));
+		        return ( ((long)timeSpan.TotalDays) % (theObjPattern.Interval*7) == 0 );
 			}
 			
 			return false;
 		}
-
-        AppointmentItem GetOccurence(AppointmentItem theAppt, DateTime theToday)
+		
+        AppointmentItem GetOccurence(AppointmentItem theAppt, RecurrencePattern theObjPattern, DateTime theToday)
 		{
 			AppointmentItem apptOccu = null;
 			DateTime aDay = new DateTime(theToday.Year,theToday.Month,theToday.Day,
@@ -128,6 +149,22 @@ namespace OutlookCal
 					aDay =aDay.AddHours(1);
 				}
 			}
+			// if not found search in the exceptions
+			if(apptOccu == null)
+			{
+                foreach (Microsoft.Office.Interop.Outlook.Exception anExcept in theObjPattern.Exceptions)
+                {
+                    if (anExcept.Deleted)
+                    {
+                        continue;
+                    }
+                    if (anExcept.AppointmentItem.Start.Date == theToday.Date)
+                    {
+                        apptOccu = anExcept.AppointmentItem;
+						break;
+                    }
+                }
+            }
 			return apptOccu;
 		}
 	}
